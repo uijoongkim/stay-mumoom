@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="머무름 로그인과 여행 사이트 연결 준비 화면">
+  <title>연결 관리 — 머무름</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/connections.js"></script>
+</head>
+<body class="connections-page">
+  <a class="skip-link" href="#connections">연결 목록으로 건너뛰기</a>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="머무름 홈">
+      <svg aria-hidden="true" viewBox="0 0 36 36"><path d="M7 27V14l11-8 11 8v13H7Z"/><path d="M13 27v-8h10v8"/></svg>
+      <span>머무름</span><small>PoC</small>
+    </a>
+    <nav class="site-nav" aria-label="주요 메뉴"><a href="./explore.html">숙소 탐색</a><a aria-current="page" href="./connections.html">연결 관리</a></nav>
+  </header>
+
+  <main>
+    <section class="connections-intro">
+      <p class="eyebrow">ACCOUNT & PROVIDERS</p>
+      <h1>한 번 로그인하고,<br>허용된 연결만 관리해요.</h1>
+      <p>현재는 화면과 연결 상태만 먼저 설계했습니다. 머무름 로그인 및 여행 사이트 OAuth는 각 제공자의 공식 권한과 개인정보 정책을 확인한 뒤 단계적으로 활성화합니다.</p>
+    </section>
+
+    <section class="account-preview" aria-labelledby="account-title">
+      <div><p class="step">01</p><h2 id="account-title">머무름 계정</h2></div>
+      <div class="account-card">
+        <div><strong>로그인 인터페이스 준비 중</strong><p>향후 찜 목록, 여행 목적, 연결된 사이트 권한을 계정에 안전하게 보관합니다.</p></div>
+        <button type="button" disabled>로그인 준비 중</button>
+      </div>
+    </section>
+
+    <section id="connections" class="connections-list" aria-labelledby="connections-title">
+      <div class="section-heading"><div><p class="step">02</p><h2 id="connections-title">여행 사이트 연결</h2></div><p>비밀번호를 받지 않고 공식 API·OAuth·검색 링크만 사용합니다.</p></div>
+      <div class="connection-grid">
+        <article class="connection-card" data-provider="naver">
+          <div class="connection-top"><span class="provider-monogram naver">N</span><span class="connection-status" data-state="loading">확인 중</span></div>
+          <h3>네이버</h3><p>공식 지역 검색 API로 공주 숙박 후보를 찾습니다. 별점·가격·사진은 이 API에서 제공하지 않습니다.</p>
+          <div class="connection-meta"><span>방식</span><strong>서버 API 키</strong></div>
+        </article>
+        <article class="connection-card" data-provider="airbnb">
+          <div class="connection-top"><span class="provider-monogram airbnb">A</span><span class="connection-status" data-state="link-only">공식 검색 링크</span></div>
+          <h3>에어비앤비</h3><p>일반 공개 숙소 검색 API 권한이 없어 데이터를 수집하지 않고 공식 공주 검색으로 이동합니다.</p>
+          <a class="connection-link" id="connection-airbnb" href="https://www.airbnb.co.kr/" target="_blank" rel="noopener noreferrer">공주 검색 열기 <span aria-hidden="true">↗</span></a>
+        </article>
+        <article class="connection-card is-planned">
+          <div class="connection-top"><span class="provider-monogram tour">T</span><span class="connection-status" data-state="planned">검토 중</span></div>
+          <h3>한국관광공사 TourAPI</h3><p>국내 관광·숙박 공공데이터의 인증 조건과 제공 필드를 다음 단계에서 확인합니다.</p>
+          <div class="connection-meta"><span>예정</span><strong>공식 OpenAPI</strong></div>
+        </article>
+        <article class="connection-card is-planned">
+          <div class="connection-top"><span class="provider-monogram more">+</span><span class="connection-status" data-state="planned">파트너 검토</span></div>
+          <h3>여행 예약 사이트</h3><p>Booking.com, Expedia, Agoda, 여기어때, 야놀자의 공식 제휴·딥링크 경로를 우선 검토합니다.</p>
+          <div class="connection-meta"><span>원칙</span><strong>승인된 경로만</strong></div>
+        </article>
+      </div>
+    </section>
+
+    <aside class="truth-note"><strong>로그인 설계 원칙</strong><p>머무름 로그인과 외부 사이트 연결은 서로 분리합니다. 외부 사이트 비밀번호를 머무름이 직접 받지 않으며, OAuth가 제공되는 경우에도 검색에 필요한 최소 권한만 요청합니다.</p></aside>
+  </main>
+
+  <footer><span>머무름 PoC</span><span>계정·연결 기능은 단계적 구현 예정</span></footer>
+</body>
+</html>

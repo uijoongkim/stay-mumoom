@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="부부와 가족 여행에 맞는 국내 숙소를 여러 출처에서 비교하는 머무름">
+  <title>머무름 — 우리 여행에 맞는 숙소 큐레이션</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="home-page">
+  <a class="skip-link" href="#start">여행 선택으로 건너뛰기</a>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="머무름 홈">
+      <svg aria-hidden="true" viewBox="0 0 36 36"><path d="M7 27V14l11-8 11 8v13H7Z"/><path d="M13 27v-8h10v8"/></svg>
+      <span>머무름</span><small>PoC</small>
+    </a>
+    <nav class="site-nav" aria-label="주요 메뉴">
+      <a href="./explore.html">숙소 탐색</a>
+      <a href="./connections.html">연결 관리</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="home-hero" aria-labelledby="home-title">
+      <div class="hero-copy">
+        <p class="eyebrow">여러 곳을 헤매지 않는 여행 준비</p>
+        <h1 id="home-title">누구와 떠나는지부터<br>숙소 선택은 달라지니까.</h1>
+        <p>네이버의 공식 검색 결과와 각 여행 사이트의 원문 경로를 한곳에서 살펴보세요. 확인되지 않은 가격과 편의시설은 꾸며내지 않고 원문에서 이어서 확인합니다.</p>
+      </div>
+      <div class="hero-note" aria-label="현재 제공 범위">
+        <span>지금은 공주부터</span>
+        <strong>공식 API 1곳<br>공식 검색 링크 1곳</strong>
+        <small>연동 가능한 출처를 단계적으로 늘립니다.</small>
+      </div>
+    </section>
+
+    <section class="journey-start" id="start" aria-labelledby="journey-title">
+      <div class="section-heading">
+        <div><p class="step">01</p><h2 id="journey-title">이번에는 누구와 떠나나요?</h2></div>
+        <p>목적에 맞는 조건을 먼저 보여드릴게요.</p>
+      </div>
+      <div class="journey-grid">
+        <a class="journey-card couple" href="./explore.html?purpose=couple">
+          <span class="journey-index">01 / COUPLE</span>
+          <div><h3>와이프와,<br>둘만의 쉼</h3><p>감성적인 분위기, 욕조와 사우나, 둘이 머물기 좋은 프라이빗한 공간을 우선합니다.</p></div>
+          <span class="journey-action">부부 여행 숙소 보기 <b aria-hidden="true">↗</b></span>
+        </a>
+        <a class="journey-card family" href="./explore.html?purpose=family">
+          <span class="journey-index">02 / FAMILY</span>
+          <div><h3>가족 모두,<br>편안한 여행</h3><p>넉넉한 인원과 공간, 주방과 수영장처럼 함께 머물기 편한 조건을 우선합니다.</p></div>
+          <span class="journey-action">가족 여행 숙소 보기 <b aria-hidden="true">↗</b></span>
+        </a>
+      </div>
+    </section>
+
+    <section class="source-overview" aria-labelledby="source-title">
+      <div>
+        <p class="step">02</p>
+        <h2 id="source-title">출처는 분명하게,<br>상세 정보는 원문에서.</h2>
+      </div>
+      <div class="source-list">
+        <article><span class="source-dot connected"></span><div><strong>네이버</strong><p>공식 NAVER API HUB 지역 검색 · 업체명, 주소, 분류, 좌표</p></div><em>API 연결</em></article>
+        <article><span class="source-dot link"></span><div><strong>에어비앤비</strong><p>파트너 승인 전까지 공주 공식 검색 화면으로 안전하게 연결</p></div><em>원문 링크</em></article>
+        <article><span class="source-dot planned"></span><div><strong>다음 연결</strong><p>TourAPI와 공식 제휴 경로가 있는 여행 사이트부터 검토</p></div><a href="./connections.html">연결 계획 보기</a></article>
+      </div>
+    </section>
+
+    <aside class="truth-note">
+      <strong>머무름의 데이터 원칙</strong>
+      <p>실제 사진·가격·별점·인원·욕실 정보는 출처가 확인될 때만 표시합니다. 네이버 지역 검색 API에는 별점이 없으므로 현재 결과를 “네이버 고평점”으로 표현하지 않습니다.</p>
+    </aside>
+  </main>
+
+  <footer><span>머무름 PoC</span><span>여러 곳을 헤매지 않는 여행 준비</span></footer>
+</body>
+</html>

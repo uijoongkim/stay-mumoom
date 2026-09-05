@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="여러 숙박 플랫폼의 후보를 같은 기준으로 비교하는 숙소 큐레이션 PoC">
+  <title>숙소 탐색 — 머무름</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#results">검색 결과로 건너뛰기</a>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="머무름 홈">
+      <svg aria-hidden="true" viewBox="0 0 36 36"><path d="M7 27V14l11-8 11 8v13H7Z"/><path d="M13 27v-8h10v8"/></svg>
+      <span>머무름</span><small>PoC</small>
+    </a>
+    <div class="header-actions">
+      <nav class="site-nav" aria-label="주요 메뉴"><a aria-current="page" href="./explore.html">숙소 탐색</a><a href="./connections.html">연결 관리</a></nav>
+      <button class="saved-summary" id="saved-summary" type="button" aria-label="찜한 숙소만 보기">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.7-7.5 1.1-1.1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+        찜 <strong id="saved-count">0</strong>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro" aria-labelledby="intro-title">
+      <div>
+        <p class="eyebrow">한 번에 모아, 같은 기준으로</p>
+        <h1 id="intro-title">우리 여행에 맞는<br>숙소만 가볍게 골라보세요.</h1>
+      </div>
+      <p class="intro-copy">흩어진 숙소 후보를 가격, 욕실, 인원, 거리와 취향으로 정리했습니다. 마음에 들면 원문에서 최신 정보를 확인하세요.</p>
+    </section>
+
+    <section class="purpose-section" aria-labelledby="purpose-title">
+      <div class="section-heading">
+        <div><p class="step">01</p><h2 id="purpose-title">이번 여행은 누구와 가나요?</h2></div>
+        <p>선택에 따라 추천 순서와 이유가 달라져요.</p>
+      </div>
+      <div class="purpose-tabs" role="radiogroup" aria-label="여행 목적">
+        <button class="purpose-card is-active" type="button" role="radio" aria-checked="true" data-purpose="couple">
+          <span class="purpose-number">둘</span><span><strong>둘만의 쉼</strong><small>욕조 · 편백 · 프라이빗</small></span>
+        </button>
+        <button class="purpose-card" type="button" role="radio" aria-checked="false" data-purpose="family">
+          <span class="purpose-number">온</span><span><strong>가족 여행</strong><small>넉넉한 정원 · 수영장 · 주방</small></span>
+        </button>
+        <button class="purpose-card" type="button" role="radio" aria-checked="false" data-purpose="friends">
+          <span class="purpose-number">함</span><span><strong>친구들과</strong><small>바비큐 · 사우나 · 액티비티</small></span>
+        </button>
+      </div>
+    </section>
+
+    <section class="search-panel" aria-labelledby="filter-title">
+      <div class="section-heading compact">
+        <div><p class="step">02</p><h2 id="filter-title">꼭 필요한 조건을 알려주세요.</h2></div>
+        <button id="reset-filters" class="text-button" type="button">조건 초기화</button>
+      </div>
+      <form id="filters" class="filters">
+        <label class="field field-wide">
+          <span>어디로 떠날까요?</span>
+          <span class="input-shell"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="query" name="query" type="search" placeholder="지역 또는 숙소 이름" autocomplete="off"></span>
+        </label>
+        <label class="field">
+          <span>1박 최대 금액 <output id="price-output" for="max-price">30만원</output></span>
+          <input id="max-price" name="maxPrice" type="range" min="90000" max="300000" step="10000" value="300000">
+          <span class="range-labels" aria-hidden="true"><small>9만원</small><small>30만원</small></span>
+        </label>
+        <label class="field">
+          <span>최소 욕실 수</span>
+          <select id="bathrooms" name="minBathrooms"><option value="0">무관</option><option value="1">1개 이상</option><option value="2">2개 이상</option></select>
+        </label>
+        <label class="field">
+          <span>숙박 인원</span>
+          <select id="guests" name="minGuests"><option value="0">무관</option><option value="2">2명 이상</option><option value="4">4명 이상</option><option value="6">6명 이상</option><option value="8">8명 이상</option></select>
+        </label>
+        <fieldset class="amenities field-wide">
+          <legend>꼭 있었으면 하는 것</legend>
+          <div class="check-row">
+            <label><input type="checkbox" name="amenities" value="bathtub"><span>욕조</span></label>
+            <label><input type="checkbox" name="amenities" value="hinoki"><span>편백</span></label>
+            <label><input type="checkbox" name="amenities" value="sauna"><span>사우나</span></label>
+            <label><input type="checkbox" name="amenities" value="pool"><span>수영장</span></label>
+            <label><input type="checkbox" name="amenities" value="bbq"><span>바비큐</span></label>
+            <label><input type="checkbox" name="amenities" value="pet"><span>반려동물</span></label>
+          </div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="results-section" id="results" aria-labelledby="results-title" tabindex="-1">
+      <div class="provider-panel" aria-labelledby="provider-title">
+        <div>
+          <p class="provider-label" id="provider-title">실데이터 연결</p>
+          <p id="provider-status" aria-live="polite">연동 상태를 확인하고 있습니다.</p>
+          <div class="platform-links" aria-label="다른 숙박 플랫폼 공식 사이트">
+            <span>다른 플랫폼에서 직접 확인</span>
+            <a href="https://www.yeogi.com/" target="_blank" rel="noopener noreferrer">여기어때 ↗</a>
+            <a href="https://www.yanolja.com/" target="_blank" rel="noopener noreferrer">야놀자 ↗</a>
+            <a href="https://www.booking.com/index.ko.html" target="_blank" rel="noopener noreferrer">Booking.com ↗</a>
+            <a href="https://www.agoda.com/ko-kr/" target="_blank" rel="noopener noreferrer">Agoda ↗</a>
+            <a href="https://www.expedia.co.kr/" target="_blank" rel="noopener noreferrer">Expedia ↗</a>
+            <a href="https://kr.trip.com/" target="_blank" rel="noopener noreferrer">트립닷컴 ↗</a>
+            <a href="https://www.myrealtrip.com/" target="_blank" rel="noopener noreferrer">마이리얼트립 ↗</a>
+          </div>
+        </div>
+        <div class="provider-actions">
+          <button id="load-naver" type="button">네이버 추천 후보 불러오기</button>
+          <a id="open-airbnb" href="https://www.airbnb.co.kr/" target="_blank" rel="noopener noreferrer">에어비앤비 공주 검색 <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="results-head">
+        <div><p class="step">03</p><h2 id="results-title">지금 잘 맞는 숙소</h2><p id="result-summary" aria-live="polite"></p></div>
+        <div class="result-controls">
+          <button id="use-location" class="location-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12Z"/><circle cx="12" cy="9" r="2"/></svg><span>서울 기준</span></button>
+          <label class="sort-field"><span class="sr-only">정렬</span><select id="sort"><option value="recommendation">추천순</option><option value="price">낮은 가격순</option><option value="distance">가까운 거리순</option></select></label>
+        </div>
+      </div>
+      <div id="listing-grid" class="listing-grid"></div>
+      <div id="empty-state" class="empty-state" hidden><p class="empty-mark">0</p><h3>조건에 맞는 숙소가 아직 없어요.</h3><p>가격이나 편의시설 조건을 하나씩 완화해보세요.</p><button type="button" id="empty-reset">전체 조건 초기화</button></div>
+    </section>
+
+    <aside class="notice" aria-label="데이터 안내">
+      <strong id="notice-title">PoC 데이터 안내</strong>
+      <p id="notice-copy">현재 화면은 기능 검증용 가상 숙소 데이터입니다. 네이버 실데이터는 6개 핵심 검색어의 리뷰 활동 기반 정렬 후보를 가져오며, 별점·가격·욕실·인원·편의시설·사진은 지역 검색 API에서 제공하지 않습니다.</p>
+    </aside>
+  </main>
+
+  <footer><span>머무름 PoC</span><span>여러 곳을 헤매지 않는 여행 준비</span></footer>
+
+  <dialog id="detail-dialog" aria-labelledby="dialog-title">
+    <div id="dialog-content"></div>
+    <button class="dialog-close" type="button" aria-label="상세 정보 닫기" id="dialog-close">×</button>
+  </dialog>
+</body>
+</html>

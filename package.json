@@ -1,0 +1,12 @@
+{
+  "name": "stay-curator-poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "start:live": "node --env-file=.env server.mjs",
+    "test": "node --test",
+    "check": "node --check src/app.js && node --check src/connections.js && node --check src/journey.js && node --check src/provider-cache.js && node --check src/static-files.js && node --check src/domain.js && node --check src/data.js && node --check src/providers.js && node --check src/api.js && node --check server.mjs"
+  }
+}
