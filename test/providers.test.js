@@ -2,13 +2,39 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildRegionQueries,
   createNaverProvider,
   GONGJU_QUERIES,
+  getAirbnbSearchUrl,
   getAirbnbGongjuSearchUrl,
   NAVER_POC_CONCURRENCY,
   NAVER_POC_TARGET,
   normalizeNaverItem,
 } from '../src/providers.js';
+import { createConcurrencyLimiter } from '../src/rate-limit.js';
+
+test('전국 지역 입력으로 제한된 네이버 숙소 검색어를 만든다', () => {
+  assert.deepEqual(buildRegionQueries('  제주   애월  '), [
+    '제주 애월 감성 숙소',
+    '제주 애월 가족 펜션',
+    '제주 애월 한옥스테이',
+    '제주 애월 풀빌라',
+    '제주 애월 호텔',
+    '제주 애월 숙박',
+  ]);
+});
+
+test('에어비앤비 검색 링크에 사용자가 고른 지역 날짜 인원을 반영한다', () => {
+  const url = new URL(getAirbnbSearchUrl({
+    region: '제주 애월', checkin: '2026-09-10', checkout: '2026-09-12', adults: 2,
+  }));
+
+  assert.equal(url.hostname, 'www.airbnb.co.kr');
+  assert.match(decodeURIComponent(url.pathname), /제주 애월/);
+  assert.equal(url.searchParams.get('checkin'), '2026-09-10');
+  assert.equal(url.searchParams.get('checkout'), '2026-09-12');
+  assert.equal(url.searchParams.get('adults'), '2');
+});
 
 test('네이버 기본 수집은 무료 PoC 수준의 핵심 검색어 6개로 제한한다', () => {
   assert.equal(NAVER_POC_TARGET, 30);
@@ -89,6 +115,33 @@ test('네이버 제공자는 API HUB 인증 헤더와 최대 display 값을 사�
   assert.equal(url.searchParams.get('start'), '1');
   assert.equal(captured.options.headers['X-NCP-APIGW-API-KEY-ID'], 'client-id');
   assert.equal(captured.options.headers['X-NCP-APIGW-API-KEY'], 'client-secret');
+});
+
+test('네이버 제공자는 서로 다른 검색의 전체 fetch 동시성을 제한한다', async () => {
+  const releases = [];
+  let active = 0;
+  let maximumActive = 0;
+  const provider = createNaverProvider({
+    clientId: 'id',
+    clientSecret: 'x',
+    requestLimiter: createConcurrencyLimiter(2),
+    fetchImpl: async () => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => releases.push(resolve));
+      active -= 1;
+      return { ok: true, json: async () => ({ items: [] }) };
+    },
+  });
+
+  const requests = ['a', 'b', 'c', 'd'].map((query) => provider.searchLocal(query));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(active, 2);
+  releases.splice(0).forEach((resolve) => resolve());
+  await new Promise((resolve) => setImmediate(resolve));
+  releases.splice(0).forEach((resolve) => resolve());
+  await Promise.all(requests);
+  assert.equal(maximumActive, 2);
 });
 
 test('네이버 제공자는 여러 검색 결과를 좌표와 이름 기준으로 중복 제거한다', async () => {

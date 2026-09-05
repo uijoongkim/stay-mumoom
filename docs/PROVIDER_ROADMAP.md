@@ -19,7 +19,7 @@
 | P2 | Booking.com Demand API | 공식 링크만 | Affiliate ID + API key token | 숙소 콘텐츠, 검색, 가용성, 주문 또는 Booking.com 리디렉션 | affiliate 승인을 받은 뒤 `search, look and redirect` 흐름 검토.[4][5] |
 | P2 | Agoda Demand API | 공식 링크만 | 파트너 등록, site credentials, 인증 및 live 전환 | 콘텐츠, 검색, 가격·가용 객실 | 비교 서비스용 Online Affiliates/MSE 모델을 파트너 담당자에게 신청.[6] |
 | P2 | Expedia Rapid API | 공식 링크만 | 파트너 신청·사례별 심사 | 숙소 쇼핑부터 예약까지 모듈형 API | PoC 트래픽과 사업 모델이 생긴 뒤 파트너 신청.[7] |
-| P2 | Airbnb | 공식 공주 검색 링크 | API 프로그램/파트너 서면 승인 | 승인 scope에 따른 콘텐츠 | 승인 전 비공식 API·DOM 크롤링·로그인 세션 사용 금지.[8] |
+| P2 | Airbnb | 입력 지역·날짜·인원의 공식 검색 링크 | API 프로그램/파트너 서면 승인 | 승인 scope에 따른 콘텐츠 | 승인 전 비공식 API·DOM 크롤링·로그인 세션 사용 금지.[8] |
 | P3 | 여기어때 | 공식 홈페이지 링크 | 공개 개발자 API 문서 미확인, 사업 제휴 문의 필요 | 미확정 | 링크만 제공. DOM/앱 API 역공학 금지. |
 | P3 | 야놀자 | 공식 홈페이지 링크 | 공개 소비자 숙소 API 문서 미확인, 사업 제휴 문의 필요 | 미확정 | 링크만 제공. DOM/앱 API 역공학 금지. |
 | P3 | 트립닷컴·마이리얼트립 | 공식 홈페이지 링크 | 각사 affiliate/제휴 확인 필요 | 미확정 | 계약 전 공식 사이트 링크만 제공. |

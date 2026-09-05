@@ -1,3 +1,5 @@
+import { normalizeRegion } from './search.js';
+
 const NAVER_LOCAL_ENDPOINT = 'https://naverapihub.apigw.ntruss.com/search/v1/local';
 export const NAVER_POC_TARGET = 30;
 export const NAVER_POC_CONCURRENCY = 3;
@@ -10,6 +12,12 @@ export const GONGJU_QUERIES = [
   '계룡산 펜션',
   '공주 호텔',
 ];
+
+export function buildRegionQueries(regionInput) {
+  const region = normalizeRegion(regionInput);
+  return ['감성 숙소', '가족 펜션', '한옥스테이', '풀빌라', '호텔', '숙박']
+    .map((term) => `${region} ${term}`);
+}
 
 const decodeEntities = (value) => String(value ?? '')
   .replaceAll('&amp;', '&')
@@ -55,17 +63,23 @@ const ACCOMMODATION_CATEGORY_TERMS = [
   '민박', '캠핑', '야영장', '리조트', '호스텔', '휴양림',
 ];
 
-const isGongjuAccommodation = (rawItem) => {
+const regionTokens = (region) => region.split(' ')
+  .map((token) => token.replace(/(특별자치도|특별자치시|광역시|특별시|도|시|군|구|읍|면|동)$/u, ''))
+  .filter((token) => token.length >= 2);
+
+const isRegionAccommodation = (rawItem, region) => {
   const address = decodeEntities(rawItem.roadAddress || rawItem.address || '');
+  const title = decodeEntities(rawItem.title || '');
   const category = decodeEntities(rawItem.category || '');
-  return address.includes('공주시')
+  const location = `${address} ${title}`.replace(/\s+/g, '');
+  return regionTokens(region).every((token) => location.includes(token))
     && ACCOMMODATION_CATEGORY_TERMS.some((term) => category.includes(term));
 };
 
 export function normalizeNaverItem(item) {
   const title = decodeEntities(item.title) || '이름 없는 숙소';
   const roadAddress = decodeEntities(item.roadAddress);
-  const address = roadAddress || decodeEntities(item.address) || '충청남도 공주시';
+  const address = roadAddress || decodeEntities(item.address) || '주소 정보 없음';
   const lat = parseCoordinate(item.mapy, 90);
   const lng = parseCoordinate(item.mapx, 180);
   const fingerprint = `${title.toLocaleLowerCase('ko-KR')}|${lat}|${lng}|${address}`;
@@ -104,7 +118,8 @@ export function createNaverProvider({
   clientId = '',
   clientSecret = '',
   fetchImpl = globalThis.fetch,
-  queries = GONGJU_QUERIES,
+  requestLimiter = { run: (task) => task() },
+  queries,
 } = {}) {
   const configured = Boolean(clientId && clientSecret);
 
@@ -122,14 +137,14 @@ export function createNaverProvider({
     url.searchParams.set('sort', 'comment');
     url.searchParams.set('format', 'json');
 
-    const response = await fetchImpl(url, {
+    const response = await requestLimiter.run(() => fetchImpl(url, {
       headers: {
         'X-NCP-APIGW-API-KEY-ID': clientId,
         'X-NCP-APIGW-API-KEY': clientSecret,
         Accept: 'application/json',
       },
       signal: AbortSignal.timeout(8000),
-    });
+    }));
 
     if (!response.ok) {
       const body = await response.text();
@@ -144,13 +159,15 @@ export function createNaverProvider({
     return Array.isArray(payload.items) ? payload.items : [];
   }
 
-  async function collectGongju({ target = NAVER_POC_TARGET } = {}) {
+  async function collectRegion({ region: regionInput, target = NAVER_POC_TARGET } = {}) {
+    const region = normalizeRegion(regionInput);
+    const activeQueries = queries ?? buildRegionQueries(region);
     const rawItems = [];
     const errors = [];
     const concurrency = NAVER_POC_CONCURRENCY;
 
-    for (let index = 0; index < queries.length; index += concurrency) {
-      const batch = queries.slice(index, index + concurrency);
+    for (let index = 0; index < activeQueries.length; index += concurrency) {
+      const batch = activeQueries.slice(index, index + concurrency);
       const results = await Promise.all(batch.map(async (query) => {
         try {
           return await searchLocal(query);
@@ -163,7 +180,7 @@ export function createNaverProvider({
       rawItems.push(...results.flat());
     }
 
-    if (queries.length > 0 && errors.length === queries.length) {
+    if (activeQueries.length > 0 && errors.length === activeQueries.length) {
       const error = new Error('NAVER 지역 검색 전체 질의 실패');
       error.code = 'NAVER_ALL_QUERIES_FAILED';
       throw error;
@@ -172,7 +189,7 @@ export function createNaverProvider({
     const unique = new Map();
     let rejectedCount = 0;
     for (const rawItem of rawItems) {
-      if (!isGongjuAccommodation(rawItem)) {
+      if (!isRegionAccommodation(rawItem, region)) {
         rejectedCount += 1;
         continue;
       }
@@ -186,7 +203,8 @@ export function createNaverProvider({
       items,
       meta: {
         provider: 'naver-api-hub',
-        queryCount: queries.length,
+        region,
+        queryCount: activeQueries.length,
         rawCount: rawItems.length,
         rejectedCount,
         uniqueCount: unique.size,
@@ -202,12 +220,21 @@ export function createNaverProvider({
     };
   }
 
-  return { configured, searchLocal, collectGongju };
+  const collectGongju = (options = {}) => collectRegion({ ...options, region: '공주' });
+  return { configured, searchLocal, collectRegion, collectGongju };
+}
+
+export function getAirbnbSearchUrl({ region: regionInput, checkin = '', checkout = '', adults = 2 }) {
+  const region = normalizeRegion(regionInput);
+  const url = new URL(`https://www.airbnb.co.kr/s/${encodeURIComponent(`${region} 대한민국`)}/homes`);
+  url.searchParams.set('tab_id', 'home_tab');
+  url.searchParams.set('refinement_paths[]', '/homes');
+  if (checkin) url.searchParams.set('checkin', checkin);
+  if (checkout) url.searchParams.set('checkout', checkout);
+  url.searchParams.set('adults', String(Math.max(1, Number(adults) || 1)));
+  return url.toString();
 }
 
 export function getAirbnbGongjuSearchUrl() {
-  const url = new URL('https://www.airbnb.co.kr/s/공주시--충청남도--대한민국/homes');
-  url.searchParams.set('tab_id', 'home_tab');
-  url.searchParams.set('refinement_paths[]', '/homes');
-  return url.toString();
+  return getAirbnbSearchUrl({ region: '공주시 충청남도' });
 }

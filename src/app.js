@@ -1,11 +1,14 @@
 import { amenityLabels, rawListings } from './data.js';
 import { filterListings, normalizeListing, rankListings } from './domain.js';
 import { getPurposeFromSearch } from './journey.js';
+import { formatMaxPrice, formatPrice } from './presentation.js';
+import { getAirbnbSearchUrl } from './providers.js';
+import { createLatestRequestGuard } from './request-guard.js';
+import { normalizeSearchCriteria } from './search.js';
 
 const sampleListings = rawListings.map(normalizeListing);
 let listings = [...sampleListings];
 const defaultOrigin = { lat: 37.5665, lng: 126.978 };
-const currency = new Intl.NumberFormat('ko-KR');
 const state = {
   purpose: getPurposeFromSearch(window.location.search),
   origin: defaultOrigin,
@@ -15,7 +18,14 @@ const state = {
   favorites: loadFavorites(),
   dataMode: 'sample',
   providerMeta: null,
+  providerConfigured: null,
+  activeMinRating: 4.5,
 };
+
+const SAMPLE_NOTICE_TITLE = 'PoC 데이터 안내';
+const SAMPLE_NOTICE_COPY = '현재 화면은 기능 검증용 가상 숙소 데이터이며 평점 4.5 이상만 표시합니다. 네이버 실데이터의 별점·가격·욕실·인원·편의시설·사진은 지역 검색 API 제공 범위가 아니므로, 검색 후에는 평점 미검증 후보로 별도 안내합니다.';
+const SEARCH_BUTTON_LABEL = '이 조건으로 네이버 검색';
+const searchRequests = createLatestRequestGuard();
 
 const elements = {
   form: document.querySelector('#filters'),
@@ -35,6 +45,10 @@ const elements = {
   providerStatus: document.querySelector('#provider-status'),
   noticeTitle: document.querySelector('#notice-title'),
   noticeCopy: document.querySelector('#notice-copy'),
+  region: document.querySelector('#region'),
+  checkin: document.querySelector('#checkin'),
+  checkout: document.querySelector('#checkout'),
+  resultsTitle: document.querySelector('#results-title'),
 };
 
 function loadFavorites() {
@@ -48,10 +62,6 @@ function loadFavorites() {
 
 function saveFavorites() {
   localStorage.setItem('stay-curator-favorites', JSON.stringify([...state.favorites]));
-}
-
-function formatPrice(value) {
-  return Number.isFinite(value) ? `${currency.format(value)}원` : '가격 정보 없음';
 }
 
 function escapeHtml(value) {
@@ -70,11 +80,15 @@ function compareNullable(a, b, key) {
 
 function getFilters() {
   const formData = new FormData(elements.form);
+  if (state.dataMode === 'live') {
+    return { query: '', maxPrice: null, minBathrooms: 0, minGuests: 0, minRating: 0, amenities: [] };
+  }
   return {
-    query: formData.get('query'),
+    query: formData.get('region'),
     maxPrice: Number(formData.get('maxPrice')) < 300000 ? formData.get('maxPrice') : null,
     minBathrooms: formData.get('minBathrooms'),
-    minGuests: formData.get('minGuests'),
+    minGuests: formData.get('guests'),
+    minRating: formData.get('minRating'),
     amenities: formData.getAll('amenities'),
   };
 }
@@ -97,20 +111,23 @@ function listingCard(listing) {
   const facts = basic
     ? `<span>${escapeHtml(listing.category || '숙박 업체')}</span><span>상세 조건 원문 확인</span>`
     : `<span>최대 ${listing.capacity}명</span><span>욕실 ${listing.bathrooms}</span><span>침실 ${listing.bedrooms}</span>`;
-  const image = listing.image || './assets/stay-hanok.svg';
+  const image = listing.image
+    ? `<img src="${escapeHtml(listing.image)}" alt="${escapeHtml(listing.name)} 샘플 이미지" loading="lazy">`
+    : '<div class="photo-unavailable" role="img" aria-label="사진 미제공"><span>사진 미제공</span><small>공식 원문에서 확인</small></div>';
   const distance = Number.isFinite(listing.distanceKm) ? `약 ${listing.distanceKm}km` : '거리 정보 없음';
+  const rating = Number.isFinite(listing.rating) ? `평점 ${listing.rating}` : '평점 미제공';
 
   return `<article class="listing-card" data-id="${listing.id}">
     <div class="listing-visual">
-      <img src="${image}" alt="숙소 유형을 나타내는 자체 제작 일러스트" loading="lazy">
+      ${image}
       <span class="source-badge">${escapeHtml(listing.sourceLabel)}</span>
       <button class="save-button ${saved ? 'is-saved' : ''}" type="button" data-action="save" aria-label="${escapeHtml(listing.name)} ${saved ? '찜 취소' : '찜하기'}" aria-pressed="${saved}">
         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.7-7.5 1.1-1.1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
       </button>
-      <span class="match-score">${basic ? '기본 정보' : `<strong>${listing.recommendationScore}</strong>% match`}</span>
+      <span class="match-score">${basic ? '평점 미검증' : `<strong>${listing.recommendationScore}</strong>% match`}</span>
     </div>
     <div class="listing-body">
-      <div class="listing-kicker"><span>${escapeHtml(listing.location)}</span><span>${distance}</span></div>
+      <div class="listing-kicker"><span>${escapeHtml(listing.location)}</span><span>${rating} · ${distance}</span></div>
       <h3>${escapeHtml(listing.name)}</h3>
       <ul class="reasons">${reasons}</ul>
       <div class="amenity-tags">${amenities}</div>
@@ -137,19 +154,75 @@ function render() {
   elements.summary.textContent = state.favoritesOnly
     ? `찜한 숙소 ${visible.length}곳을 보고 있어요.`
     : state.dataMode === 'live'
-      ? `네이버 공식 API에서 수집한 ${listings.length}곳 중 조건에 맞는 ${visible.length}곳입니다.`
-      : `5개 출처의 샘플에서 조건에 맞는 ${visible.length}곳을 찾았어요.`;
+      ? `네이버 공식 API 후보 ${listings.length}곳입니다. 선택한 평점 ${state.activeMinRating} 이상 여부는 원문에서 확인해야 합니다.`
+      : `5개 출처의 샘플 중 평점 기준과 조건에 맞는 ${visible.length}곳을 찾았어요.`;
   elements.savedCount.textContent = state.favorites.size;
   elements.savedSummary.classList.toggle('is-active', state.favoritesOnly);
   elements.savedSummary.setAttribute('aria-pressed', String(state.favoritesOnly));
 }
 
 function resetFilters() {
+  invalidatePendingSearch();
   elements.form.reset();
+  setDefaultDates();
   elements.price.value = '300000';
-  elements.priceOutput.textContent = '30만원';
+  elements.priceOutput.textContent = '제한 없음';
   state.favoritesOnly = false;
+  restoreSampleView();
+  updateAirbnbLink();
   render();
+}
+
+function setProviderStatus() {
+  if (state.providerConfigured === true) {
+    elements.providerStatus.textContent = '네이버 API 인증 완료 · 전국 지역 후보를 검색할 수 있습니다. 에어비앤비는 같은 지역·날짜의 공식 검색으로 연결됩니다.';
+    elements.providerStatus.dataset.state = 'ready';
+  } else if (state.providerConfigured === false) {
+    elements.providerStatus.textContent = '네이버 API 키 설정 필요 · 에어비앤비는 파트너 승인 전까지 공식 검색 링크만 제공합니다.';
+    elements.providerStatus.dataset.state = 'setup';
+  }
+}
+
+function restoreSampleView({ restoreProvider = true } = {}) {
+  state.dataMode = 'sample';
+  state.providerMeta = null;
+  state.activeMinRating = 4.5;
+  listings = [...sampleListings];
+  elements.resultsTitle.textContent = '지금 잘 맞는 숙소';
+  elements.noticeTitle.textContent = SAMPLE_NOTICE_TITLE;
+  elements.noticeCopy.textContent = SAMPLE_NOTICE_COPY;
+  if (restoreProvider) setProviderStatus();
+}
+
+function invalidatePendingSearch() {
+  searchRequests.invalidate();
+  elements.loadNaver.disabled = false;
+  elements.loadNaver.textContent = SEARCH_BUTTON_LABEL;
+}
+
+function currentSearchCriteria() {
+  const formData = new FormData(elements.form);
+  return normalizeSearchCriteria({
+    region: formData.get('region'),
+    checkin: formData.get('checkin'),
+    checkout: formData.get('checkout'),
+    guests: formData.get('guests'),
+    minRating: formData.get('minRating'),
+  });
+}
+
+function updateAirbnbLink(criteria = null) {
+  try {
+    const activeCriteria = criteria ?? currentSearchCriteria();
+    elements.openAirbnb.href = getAirbnbSearchUrl({
+      region: activeCriteria.region,
+      checkin: activeCriteria.checkin,
+      checkout: activeCriteria.checkout,
+      adults: activeCriteria.guests,
+    });
+  } catch {
+    elements.openAirbnb.href = 'https://www.airbnb.co.kr/';
+  }
 }
 
 function findListingFromEvent(event) {
@@ -166,10 +239,12 @@ function showDetails(listing) {
   const updatedAt = ranked.updatedAt
     ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ranked.updatedAt))
     : '정보 없음';
-  const image = ranked.image || './assets/stay-hanok.svg';
+  const image = ranked.image
+    ? `<img class="dialog-image" src="${escapeHtml(ranked.image)}" alt="${escapeHtml(ranked.name)} 샘플 이미지">`
+    : '<div class="dialog-image photo-unavailable" role="img" aria-label="사진 미제공"><span>사진 미제공</span><small>공식 원문에서 확인</small></div>';
   const distance = Number.isFinite(ranked.distanceKm) ? `약 ${ranked.distanceKm}km` : '거리 정보 없음';
 
-  elements.dialogContent.innerHTML = `<img class="dialog-image" src="${image}" alt="숙소 유형을 나타내는 자체 제작 일러스트">
+  elements.dialogContent.innerHTML = `${image}
     <div class="dialog-body">
       <p class="dialog-source">${escapeHtml(ranked.sourceLabel)} · ${distance}</p>
       <h2 id="dialog-title">${escapeHtml(ranked.name)}</h2>
@@ -192,11 +267,8 @@ async function initializeProviders() {
   try {
     const response = await fetch('/api/providers');
     const providers = await response.json();
-    elements.openAirbnb.href = providers.airbnb.searchUrl;
-    elements.providerStatus.textContent = providers.naver.configured
-      ? '네이버 API 인증 완료 · 공주 숙소를 가져올 수 있습니다. 에어비앤비는 공식 검색 링크로 연결됩니다.'
-      : '네이버 API 키 설정 필요 · 에어비앤비는 파트너 승인 전까지 공식 검색 링크만 제공합니다.';
-    elements.providerStatus.dataset.state = providers.naver.configured ? 'ready' : 'setup';
+    state.providerConfigured = providers.naver.configured;
+    setProviderStatus();
   } catch {
     elements.providerStatus.textContent = '연동 상태를 확인하지 못했습니다. 서버 실행 상태를 확인하세요.';
     elements.providerStatus.dataset.state = 'error';
@@ -204,39 +276,75 @@ async function initializeProviders() {
 }
 
 async function loadNaverListings() {
-  const originalLabel = elements.loadNaver.textContent;
+  invalidatePendingSearch();
+  let criteria;
+  try {
+    criteria = currentSearchCriteria();
+  } catch (error) {
+    elements.providerStatus.textContent = error.message;
+    elements.providerStatus.dataset.state = 'error';
+    return;
+  }
+  const request = searchRequests.begin();
+  updateAirbnbLink(criteria);
+  restoreSampleView({ restoreProvider: false });
+  render();
   elements.loadNaver.disabled = true;
-  elements.loadNaver.textContent = '공주 숙소 수집 중…';
-  elements.providerStatus.textContent = '6개 핵심 검색어의 리뷰 활동 기반 후보를 요청하고 있습니다.';
+  elements.loadNaver.textContent = `${criteria.region} 숙소 검색 중…`;
+  elements.providerStatus.textContent = `${criteria.region}의 6개 제한 검색어로 후보를 요청하고 있습니다.`;
 
   try {
-    const response = await fetch('/api/gongju-listings?target=30');
+    const params = new URLSearchParams({ ...criteria, target: '30' });
+    const response = await fetch(`/api/listings?${params}`, { signal: request.signal });
     const payload = await response.json();
+    if (!request.isCurrent()) return;
     if (!response.ok) throw new Error(payload.message || '네이버 API 요청 실패');
 
     listings = payload.listings.map(normalizeListing);
     state.dataMode = 'live';
     state.providerMeta = payload.meta;
+    state.activeMinRating = criteria.minRating;
     state.favoritesOnly = false;
-    resetFilters();
-    elements.noticeTitle.textContent = '네이버 실데이터 안내';
-    elements.noticeCopy.textContent = `공식 NAVER API HUB 지역 검색을 ${payload.meta.queryCount}회 호출해 원본 ${payload.meta.rawCount}건을 찾고 중복 제거 후 ${payload.meta.returnedCount}곳을 표시합니다. 리뷰 활동 기반 정렬 후보이며 네이버 별점 필터가 아닙니다. 가격·인원·욕실·편의시설·사진은 API 미제공 정보입니다.`;
-    elements.providerStatus.textContent = `네이버 인증 완료 · 공주 숙소 후보 ${payload.meta.returnedCount}곳 수집${payload.meta.partial ? ' (일부 검색 실패)' : ''}`;
+    elements.openAirbnb.href = payload.airbnb.searchUrl;
+    elements.resultsTitle.textContent = `${criteria.region} 네이버 후보`;
+    render();
+    elements.noticeTitle.textContent = '평점 미검증 NAVER 후보';
+    elements.noticeCopy.textContent = `공식 NAVER API HUB 지역 검색을 ${payload.meta.queryCount}회 호출해 원본 ${payload.meta.rawCount}건을 찾고 중복 제거 후 ${payload.meta.returnedCount}곳을 표시합니다. NAVER 지역 검색 API에는 별점·가격·인원·욕실·편의시설·사진·날짜별 재고가 없어 ${criteria.minRating} 이상 추천 목록에는 포함하지 않았습니다. 각 원문에서 최신 정보를 확인하세요.`;
+    elements.providerStatus.textContent = `네이버 인증 완료 · ${criteria.region} 후보 ${payload.meta.returnedCount}곳 수집${payload.meta.cached ? ' (캐시)' : ''}${payload.meta.partial ? ' (일부 검색 실패)' : ''}`;
     elements.providerStatus.dataset.state = 'ready';
   } catch (error) {
+    if (error.name === 'AbortError' || !request.isCurrent()) return;
     elements.providerStatus.textContent = error.message;
     elements.providerStatus.dataset.state = 'error';
   } finally {
-    elements.loadNaver.disabled = false;
-    elements.loadNaver.textContent = originalLabel;
+    if (request.isCurrent()) {
+      elements.loadNaver.disabled = false;
+      elements.loadNaver.textContent = SEARCH_BUTTON_LABEL;
+      request.complete();
+    }
   }
 }
 
 elements.form.addEventListener('input', () => {
-  elements.priceOutput.textContent = `${Number(elements.price.value) / 10000}만원`;
+  invalidatePendingSearch();
+  elements.priceOutput.textContent = formatMaxPrice(elements.price.value, elements.price.max);
+  restoreSampleView();
+  updateAirbnbLink();
   render();
 });
-elements.form.addEventListener('change', render);
+elements.form.addEventListener('change', () => {
+  invalidatePendingSearch();
+  restoreSampleView();
+  updateAirbnbLink();
+  render();
+});
+elements.form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  loadNaverListings();
+});
+elements.loadNaver.addEventListener('click', () => {
+  if (elements.form.reportValidity()) loadNaverListings();
+});
 elements.sort.addEventListener('change', () => { state.sort = elements.sort.value; render(); });
 document.querySelectorAll('[data-purpose]').forEach((button) => {
   const initiallyActive = button.dataset.purpose === state.purpose;
@@ -265,7 +373,6 @@ elements.grid.addEventListener('click', (event) => {
   if (action === 'detail') showDetails(listing);
 });
 elements.savedSummary.addEventListener('click', () => { state.favoritesOnly = !state.favoritesOnly; render(); });
-elements.loadNaver.addEventListener('click', loadNaverListings);
 document.querySelector('#reset-filters').addEventListener('click', resetFilters);
 document.querySelector('#empty-reset').addEventListener('click', resetFilters);
 document.querySelector('#dialog-close').addEventListener('click', () => elements.dialog.close());
@@ -295,5 +402,33 @@ elements.location.addEventListener('click', () => {
   );
 });
 
+function toDateInputValue(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function setDefaultDates() {
+  const checkin = new Date();
+  checkin.setDate(checkin.getDate() + 7);
+  const checkout = new Date(checkin);
+  checkout.setDate(checkout.getDate() + 1);
+  const today = toDateInputValue(new Date());
+  elements.checkin.min = today;
+  elements.checkin.value = toDateInputValue(checkin);
+  elements.checkout.min = toDateInputValue(new Date(checkin.getFullYear(), checkin.getMonth(), checkin.getDate() + 1));
+  elements.checkout.value = toDateInputValue(checkout);
+}
+
+elements.checkin.addEventListener('change', () => {
+  if (!elements.checkin.value) return;
+  const nextDay = new Date(`${elements.checkin.value}T00:00:00`);
+  nextDay.setDate(nextDay.getDate() + 1);
+  elements.checkout.min = toDateInputValue(nextDay);
+  if (!elements.checkout.value || elements.checkout.value <= elements.checkin.value) {
+    elements.checkout.value = toDateInputValue(nextDay);
+  }
+});
+
+setDefaultDates();
+updateAirbnbLink();
 render();
 initializeProviders();

@@ -76,6 +76,7 @@ export function filterListings(listings, filters = {}) {
   const maxPrice = Number(filters.maxPrice) || Number.POSITIVE_INFINITY;
   const minBathrooms = Number(filters.minBathrooms) || 0;
   const minGuests = Number(filters.minGuests) || 0;
+  const minRating = Number(filters.minRating) || 0;
   const amenities = filters.amenities ?? [];
 
   return listings.filter((listing) => {
@@ -86,10 +87,13 @@ export function filterListings(listings, filters = {}) {
       || (Number.isFinite(listing.bathrooms) && listing.bathrooms >= minBathrooms);
     const matchesGuests = minGuests === 0
       || (Number.isFinite(listing.capacity) && listing.capacity >= minGuests);
+    const matchesRating = minRating === 0
+      || (Number.isFinite(listing.rating) && listing.rating >= minRating);
     return (!query || searchable.includes(query))
       && matchesPrice
       && matchesBathrooms
       && matchesGuests
+      && matchesRating
       && amenities.every((amenity) => listing.amenities.includes(amenity));
   });
 }

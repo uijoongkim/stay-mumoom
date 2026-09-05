@@ -35,6 +35,7 @@ const listings = [
     maxGuests: 4,
     features: ['bathtub', 'hinoki', 'sauna'],
     themes: ['romantic', 'nature'],
+    rating: 4.9,
   },
   {
     ...rawListing,
@@ -46,6 +47,7 @@ const listings = [
     maxGuests: 8,
     features: ['pool', 'bbq'],
     themes: ['family'],
+    rating: 4.7,
   },
 ].map(normalizeListing);
 
@@ -107,6 +109,16 @@ test('filterListings는 상세 정보가 없는 후보를 조건 미지정 때�
   assert.equal(filterListings([basicListing], { query: '공주' }).length, 1);
   assert.equal(filterListings([basicListing], { minBathrooms: 2 }).length, 0);
   assert.equal(filterListings([basicListing], { maxPrice: 200000 }).length, 0);
+});
+
+test('filterListings는 실제 평점이 기준 이상인 숙소만 포함한다', () => {
+  const result = filterListings(listings, { minRating: 4.8 });
+
+  assert.deepEqual(result.map((listing) => listing.id), ['airbnb:a']);
+  const unknownRating = normalizeListing({
+    listingId: 'basic-rating', platform: 'naver', title: '평점 미제공 숙소', region: '제주',
+  });
+  assert.equal(filterListings([unknownRating], { minRating: 4.5 }).length, 0);
 });
 
 test('calculateDistanceKm는 동일 좌표 사이 거리를 0으로 계산한다', () => {
